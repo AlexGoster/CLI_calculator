@@ -6,16 +6,16 @@
 
 ```bash
 # одиночное вычисление
-python main.py 5 + 3
+python calculator.py 5 + 3
 
 # показать историю
-python main.py --history
+python calculator.py --history
 
 # очистить историю
-python main.py --clear
+python calculator.py --clear
 
 # интерактивный режим
-python main.py
+python calculator.py
 ```
 
 В интерактивном режиме вводится выражение из трёх частей: `число оператор число`
