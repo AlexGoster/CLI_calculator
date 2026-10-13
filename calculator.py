@@ -1,5 +1,6 @@
 import argparse
 import json
+import math
 import os
 import sys
 
@@ -10,7 +11,13 @@ def load_history():
     """Загружает историю из JSON-файла."""
     if os.path.exists(HISTORY_FILE):
         with open(HISTORY_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+            history = json.load(f)
+            if not isinstance(history, list) or any(
+                not isinstance(record, dict) or "expression" not in record or "result" not in record
+                for record in history
+            ):
+                raise ValueError("Неверный формат истории вычислений.")
+            return history
     return []
 
 
@@ -53,23 +60,25 @@ def calculate(a, op, b):
         a = float(a)
         b = float(b)
     except ValueError:
-        print("Ошибка: операнды должны быть числами.")
-        sys.exit(1)
+        raise ValueError("Операнды должны быть числами.") from None
+    if not math.isfinite(a) or not math.isfinite(b):
+        raise ValueError("Операнды должны быть конечными числами.")
 
     if op == '+':
-        return a + b
+        result = a + b
     elif op == '-':
-        return a - b
+        result = a - b
     elif op == '*':
-        return a * b
+        result = a * b
     elif op == '/':
         if b == 0:
-            print("Ошибка: деление на ноль.")
-            sys.exit(1)
-        return a / b
+            raise ValueError("Деление на ноль.")
+        result = a / b
     else:
-        print(f"Ошибка: неизвестная операция '{op}'.")
-        sys.exit(1)
+        raise ValueError(f"Неизвестная операция '{op}'.")
+    if not math.isfinite(result):
+        raise ValueError("Результат слишком велик.")
+    return result
 
 
 def main():
@@ -80,6 +89,10 @@ def main():
     parser.add_argument("--history", action="store_true", help="Показать историю")
     parser.add_argument("--clear", action="store_true", help="Очистить историю")
     args = parser.parse_args()
+    if any(value is not None for value in (args.a, args.op, args.b)) and not all(
+        value is not None for value in (args.a, args.op, args.b)
+    ):
+        parser.error("Нужно указать оба операнда и оператор.")
 
     # Обработка специальных флагов
     if args.clear:
@@ -94,7 +107,10 @@ def main():
         print("Интерактивный режим. Введите выражение в формате: число операция число")
         print("Например: 5 + 3")
         while True:
-            expr = input("> ").strip()
+            try:
+                expr = input("> ").strip()
+            except (EOFError, KeyboardInterrupt):
+                break
             if expr.lower() in ('q', 'quit', 'exit'):
                 print("Выход из калькулятора.")
                 break
@@ -105,7 +121,11 @@ def main():
                 print("Неверный формат. Нужно три части: число, операция, число.")
                 continue
             a, op, b = parts
-            result = calculate(a, op, b)
+            try:
+                result = calculate(a, op, b)
+            except ValueError as exc:
+                print(f"Ошибка: {exc}")
+                continue
             expr_str = f"{a} {op} {b}"
             print(f"{expr_str} = {result}")
             add_record(expr_str, result)
@@ -119,4 +139,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (ValueError, OSError) as exc:
+        print(f"Ошибка: {exc}", file=sys.stderr)
+        sys.exit(1)
